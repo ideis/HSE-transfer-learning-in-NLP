@@ -1,0 +1,6 @@
+[submodule "data/rusentiment"]
+	path = data/rusentiment
+	url = https://github.com/text-machine-lab/rusentiment
+[submodule "rusentiment"]
+	path = rusentiment
+	url = git://github.com/text-machine-lab/rusentiment.git
