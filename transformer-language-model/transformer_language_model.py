@@ -8,25 +8,22 @@ import torch.nn.functional as F
 from torch.nn.modules.container import ModuleList
 from torch.nn.modules.normalization import LayerNorm
 
-class TransformerCharLM(nn.Module):
-    r"""A transformer model applied for sequence-to-sequence transform. 
-        User is able to modified the attributes as needed.
+class TransformerLM(nn.Module):
+    r"""A transformer model applied for language modeling.
     Args:
-        src_vocab: the number of vocabularies in the source sequence (required). 
-        tgt_vocab: the number of vocabularies in the target sequence (required). 
-        d_model: the dimension of the encoder/decoder embedding models (default=512).
+        src_vocab: the number of vocabularies in the source sequence (required).
+        d_model: the dimension of the embedding (default=512).
         nhead: the number of heads in the multiheadattention models (default=8).
         num_encoder_layers: the number of sub-encoder-layers in the encoder (default=6).
-        num_decoder_layers: the number of sub-decoder-layers in the decoder (default=6).
         dim_feedforward: the dimension of the feedforward network model (default=2048).
         dropout: the dropout value (default=0.1).
     Examples::
-        >>> transformer_model = nn.Transformer(src_vocab, tgt_vocab)
-        >>> transformer_model = nn.Transformer(src_vocab, tgt_vocab, nhead=16, num_encoder_layers=12)
+        >>> transformer_model = nn.Transformer(src_vocab)
+        >>> transformer_model = nn.Transformer(src_vocab, d_model=384, nhead=16, num_encoder_layers=12)
     """
 
     def __init__(self, vocab, d_model=256, n_heads=4, n_encoder_layers=2, d_ff=128, dropout=0.1):
-        super(TransformerCharLM, self).__init__()
+        super(TransformerLM, self).__init__()
 
         self.src_embed = nn.Embedding(vocab, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
@@ -45,26 +42,17 @@ class TransformerCharLM(nn.Module):
         self._init_parameters()
 
     def forward(self, src, src_mask=None):
-        r"""Take in and process masked source/target sequences.
+        r"""Take in and process masked source sequence.
         Args:
             src: the sequence to the encoder (required).
-            tgt: the sequence to the decoder (required).
             src_mask: the mask for the src sequence (optional).
-            tgt_mask: the mask for the tgt sequence (optional).
             memory_mask: the mask for the encoder output (optional).
         Shape:
             src: [source sequence length, batch size]
-            tgt: [target sequence length, batch size]
             src_mask: [source sequence length, source sequence length]
-            tgt_mask: [target sequence length, target sequence length]
             memory_mask: [target sequence length, source sequence length]
-            Note: The maksed positions are filled with float('-inf').
-                  Unmasked positions are filled with float(0.0). Masks ensure that the predictions
-                  for position i depend only on the information before position i.
             output: [target sequence length, batch size, tgt_vocab]
-            Note: Due to the multi-head attention architecture in the transformer model,
-                  the output sequence length of a transformer is same as the input sequence
-                  (i.e. target) length of the decode.
+
         Examples:
             >>> output = transformer_model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
         """
@@ -201,12 +189,10 @@ class ScaledDotProductAttention(nn.Module):
     def forward(self, Q, K, V):
         d_k = K.size(-1)
         assert Q.size(-1) == d_k
-        # scores dim = (batch_size, seq_len, seq_len)
         scores = torch.matmul(Q, K.transpose(1, 2))
         scores = scores / math.sqrt(d_k)
         attention = F.softmax(scores, dim = -1)
         attention = self.dropout(attention)
-        # output dim = (batch_size, seq_len, d_model)
         output = torch.matmul(attention, V)
         return output
 
@@ -227,8 +213,6 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, queries, keys, values):
         x = [attn(queries, keys, values) for _, attn in enumerate(self.attn_heads)]       
-        # concatenate heads
-        # x dim = (batch_size, seq_len, d_model= d_feature*heads)
         x = torch.cat(x, dim=2)
         x = self.linear_projection(x)
         return x

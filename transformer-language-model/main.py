@@ -10,7 +10,7 @@ from torch.optim import Adam
 # % pip install sentencepiece
 import sentencepiece as spm
 
-from transformer_language_model import TransformerCharLM
+from transformer_language_model import TransformerLM
 from utils import generate_data, clean_text
 
 def train():
