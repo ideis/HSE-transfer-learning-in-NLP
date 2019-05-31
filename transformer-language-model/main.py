@@ -11,7 +11,7 @@ from torch.optim import Adam
 import sentencepiece as spm
 
 from transformer_language_model import TransformerCharLM
-from utils import generate_data, clean_text, tokenize_text
+from utils import generate_data, clean_text
 
 def train():
     model.train()
@@ -27,7 +27,7 @@ def train():
         avg_loss = sum(losses)/len(losses)
         loss.backward()
         optimizer.step()
-        if batch_id % 100 == 0:
+        if batch_id % 10 == 0:
           print(f'epoch: {epoch} | loss: {avg_loss:.4f}')
 
 def generate(n_chars=500, temperature=0.1):
@@ -37,12 +37,17 @@ def generate(n_chars=500, temperature=0.1):
       src = torch.tensor(src).unsqueeze(0).to(device)
       if len(src) == 1: # hack
         break
+      else:
+        continue
+        
     for i in range(n_chars):
         preds = model(src)
         logits = preds.squeeze(1)
         logits = logits[-1, :].div(temperature)
         probs = F.softmax(logits, dim=-1)
         char_idx = torch.multinomial(probs, num_samples=1)
+        if len(char_idx) != 1: # one more hack
+          continue
         src = torch.cat([src, char_idx.unsqueeze(-1)], dim=0).to(device)
     text = sp.DecodeIds(src.squeeze().tolist())
     print(text)
@@ -53,18 +58,18 @@ else:
     device = 'cpu'
 print(f'device: {device}')  
 
-seq_len = 256
-vocab_size = 4000
-batch_size = 64
+seq_len = 500
+vocab_size = 2000
+batch_size = 32
 lr = 0.001
 epochs = 500
 
-n_chars=1000 # to generate
-temperature=0.7
+n_chars = 500 # to generate
+temperature = 0.6
 
-text_file = 'fiction.txt'
+text_file = 'TheHitchhikersGuide.txt'
 
-spm.SentencePieceTrainer.Train(f'--input={text_file} --model_prefix=tokens --vocab_size={vocab_size}')
+# spm.SentencePieceTrainer.Train(f'--input={text_file} --model_prefix=tokens --vocab_size={vocab_size}')
 sp = spm.SentencePieceProcessor()
 sp.Load("tokens.model")
 
@@ -72,7 +77,7 @@ text = open(text_file, 'rb').read().decode(encoding='utf-8')
 text = clean_text(text)
 text_as_int = np.array(sp.EncodeAsIds(text))
 
-model = TransformerCharLM(vocab=vocab_size, d_model=384, n_heads=8, n_encoder_layers=10, d_ff=2048, dropout=0.1)
+model = TransformerCharLM(vocab=vocab_size, d_model=384, n_heads=6, n_encoder_layers=10, d_ff=2048, dropout=0.1)
 model.to(device)
 
 criterion = nn.CrossEntropyLoss()
@@ -86,9 +91,8 @@ try:
         print('-' * 89)
 
         # Save the model at each 50 epoch.
-        save_path = 'model.pt'
-        if epoch == 50:
-          with open(save_path + str(epoch), 'wb') as f:
+        if epoch % 50 == 0:
+          with open('model'+ str(epoch) +'.pt', 'wb') as f:
               torch.save(model, f)
 
 except KeyboardInterrupt:
